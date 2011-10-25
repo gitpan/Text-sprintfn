@@ -11,12 +11,15 @@ our @EXPORT    = qw(sprintfn printfn);
 my  $re1   = qr/[^)]+/s;
 our $regex = qr{(?<fmt>
                     %
-                       (?<pi> \d+\$ | \((?<npi>$re1)\)\$?)? # parameter index
+                       (?: (?<dpi>\d+)\$ | \((?<npi>$re1)\)\$?)?
                        (?<flags>[ +0#-]*)
-                       (?<vflag>(?<a2>\*?)[v]?)
-                       (?<width> -?\d+ | (?<a1>\*?)(?:\d+\$)? |
+                       (?<vflag>(?<wvflag>\*?)[v]?)
+                       (?: (?<dwidth>-?\d+) |
+                           (?<wwidth>\*?)(?:(?<wwidthd>\d+)\$)? |
                            \((?<nwidth>$re1)\))?
-                       (?<prec> \. (?: \d+ | (?<a3>\*) | \((?<nprec>$re1)\) ) )?
+                       (?: \.
+                           (?: (?<dprec>\d+) | (?<wprec>\*) |
+                           \((?<nprec>$re1)\) ) )?
                        (?<conv> [%csduoxefgXEGbBpniDUOF])
              )}x;
 
@@ -24,43 +27,92 @@ sub sprintfn {
     my ($format, @args) = @_;
 
     my $hash;
-    $hash = shift(@args) if ref($args[0]) eq 'HASH';
+    if (ref($args[0]) eq 'HASH') {
+        $hash = shift(@args);
+        splice @_, 1, 1; # remove hash arg so it doesn't interfere with %2$d
+    }
     return sprintf($format, @args) if !$hash;
 
-    my ($npi, $nwidth, $nprec, $fmt, $res);
-    my $skip;
+    # we use sprintf() for each format, we convert the named parameters and
+    # handle the * and \d+$ stuffs ourselves.
+
+    my ($shift, $pi, $flags, $vflag, $width, $prec, $conv, $fmt, $res);
     $format =~ s{$regex}{
-        $npi    = $+{npi};
-        $nwidth = $+{nwidth};
-        $nprec  = $+{nprec};
-        $skip   = 0;
-        $skip++ if $+{a1};
-        $skip++ if $+{a2};
-        $skip++ if $+{a3};
-        if (defined($npi) || defined($nwidth) || defined($nprec)) {
-            $fmt = join(
-                "",
-                grep {defined} (
-                    "%",
-                    defined($npi) ? "" : $+{pi},
-                    $+{flags},
-                    $+{vflag},
-                    defined($nwidth) ? $hash->{$nwidth} : $+{width},
-                    defined($nprec) ? ".".($hash->{$nprec} // "") : $+{prec},
-                   $+{conv}
-                )
-            );
-            unshift @args, $hash->{$npi} if defined($npi);
-            $res = sprintf($fmt, @args);
-            # DEBUG
-            #$res="[DBG1:fmt=<$fmt> args=(".join(",",@args).") res=<$res>]";
-            do { shift @args; $skip-- }  if defined $npi;
+        # careful not to use any regex here
+        $shift = 0;
+        my $w_in_vflag;
+
+        $flags = $+{flags};
+
+        if ($+{wvflag}) {
+            $vflag = $+{vflag};
+            unshift @args, $args[0];
+            $shift += 2;
+            $w_in_vflag++;
+        } elsif ($+{vflag}) {
+            $vflag = $+{vflag};
         } else {
-            $res = sprintf($+{fmt}, @args);
-            # DEBUG
-            #$res="[DBG2:fmt=<$+{fmt}> args=(".join(",",@args).") res=<$res>]";
+            $vflag = "";
         }
-        shift @args for $skip+1;
+
+        if (defined $+{dwidth}) {
+            $width = $+{dwidth};
+        } elsif ($+{wwidth}) {
+            if (defined $+{wwidthd}) {
+                $width = int($_[ $+{wwidthd} ]);
+            } else {
+                $width = int(shift(@args));
+            }
+        } elsif (defined $+{nwidth}) {
+            $width = int($hash->{ $+{nwidth} });
+        } else {
+            $width = "";
+        }
+
+        if (defined $+{dprec}) {
+            $prec = ".$+{dprec}";
+        } elsif ($+{wprec}) {
+            $prec = "." . int(shift @args);
+        } elsif (defined $+{nprec}) {
+            $prec = "." . int($hash->{ $+{nprec} });
+        } else {
+            $prec = "";
+        }
+
+        if (defined $+{dpi}) {
+            if ($w_in_vflag) {
+                $pi = q[2$];
+                splice @args, 1, 0, $_[ $+{dpi} ];
+            } else {
+                $pi = q[1$];
+                unshift @args, $_[ $+{dpi} ];
+            }
+        } elsif (defined $+{npi}) {
+            if ($w_in_vflag) {
+                $pi = q[2$];
+                splice @args, 1, 0, $hash->{ $+{npi} };
+            } else {
+                $pi = q[1$];
+                unshift @args, $hash->{ $+{npi} };
+            }
+        } else {
+            $pi = "";
+        }
+
+        $conv = $+{conv};
+
+        $fmt = "%$pi$flags$vflag$width$prec$conv";
+        $res = sprintf($fmt, @args);
+
+        # DEBUG
+        #my %a = %+; print "\%+={".join(", ", %a)."} \n";
+        #print "\@args=(".join(", ", @args).") \n";
+        #print "[DBG:pi=<$pi> flags=<$flags> vflag=<$vflag> width=<$width> ".
+        #    "prec=<$prec> conv=<$conv> fmt=<$fmt> ".
+        #        "args=(".join(",",@args).") res=<$res>]\n";
+
+        $shift++;
+        shift @args for $shift;
         $res;
     }xeg;
     $format;
@@ -84,7 +136,7 @@ Text::sprintfn - Drop-in replacement for sprintf(), with named parameter support
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 SYNOPSIS
 
