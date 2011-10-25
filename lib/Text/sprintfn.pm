@@ -8,20 +8,24 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT    = qw(sprintfn printfn);
 
+our $distance  = 10;
+
 my  $re1   = qr/[^)]+/s;
-our $regex = qr{(?<fmt>
+my  $re2   = qr{(?<fmt>
                     %
-                       (?: (?<dpi>\d+)\$ | \((?<npi>$re1)\)\$?)?
-                       (?<flags>[ +0#-]*)
-                       (?<vflag>(?<wvflag>\*?)[v]?)
-                       (?: (?<dwidth>-?\d+) |
-                           (?<wwidth>\*?)(?:(?<wwidthd>\d+)\$)? |
+                       (?<pi> \d+\$ | \((?<npi>$re1)\)\$?)?
+                       (?<flags> [ +0#-]+)?
+                       (?<vflag> \*?[v])?
+                       (?<width> -?\d+ |
+                           \*\d+\$? |
                            \((?<nwidth>$re1)\))?
-                       (?: \.
-                           (?: (?<dprec>\d+) | (?<wprec>\*) |
-                           \((?<nprec>$re1)\) ) )?
+                       (?<dot>\.?)
+                       (?<prec>
+                           (?: \d+ | \* |
+                           \((?<nprec>$re1)\) ) ) ?
                        (?<conv> [%csduoxefgXEGbBpniDUOF])
-             )}x;
+                   )}x;
+our $regex = qr{($re2|%|[^%]+)}s;
 
 sub sprintfn {
     my ($format, @args) = @_;
@@ -29,93 +33,60 @@ sub sprintfn {
     my $hash;
     if (ref($args[0]) eq 'HASH') {
         $hash = shift(@args);
-        splice @_, 1, 1; # remove hash arg so it doesn't interfere with %2$d
     }
     return sprintf($format, @args) if !$hash;
 
-    # we use sprintf() for each format, we convert the named parameters and
-    # handle the * and \d+$ stuffs ourselves.
+    my %indexes; # key = $hash key, value = index for @args
+    push @args, (undef) x $distance;
 
-    my ($shift, $pi, $flags, $vflag, $width, $prec, $conv, $fmt, $res);
     $format =~ s{$regex}{
-        # careful not to use any regex here
-        $shift = 0;
-        my $w_in_vflag;
+        # take care not to use any regex here (resets %+)
+        my $res;
+        my ($pi, $width, $prec);
+        if ($+{fmt}) {
 
-        $flags = $+{flags};
-
-        if ($+{wvflag}) {
-            $vflag = $+{vflag};
-            unshift @args, $args[0];
-            $shift += 2;
-            $w_in_vflag++;
-        } elsif ($+{vflag}) {
-            $vflag = $+{vflag};
-        } else {
-            $vflag = "";
-        }
-
-        if (defined $+{dwidth}) {
-            $width = $+{dwidth};
-        } elsif ($+{wwidth}) {
-            if (defined $+{wwidthd}) {
-                $width = int($_[ $+{wwidthd} ]);
+            if (defined $+{npi}) {
+                my $i = $indexes{ $+{npi} };
+                if (!$i) {
+                    $i = @args + 1;
+                    push @args, $hash->{ $+{npi} };
+                    $indexes{ $+{npi} } = $i;
+                }
+                $pi = "${i}\$";
             } else {
-                $width = int(shift(@args));
+                $pi = $+{pi};
             }
-        } elsif (defined $+{nwidth}) {
-            $width = int($hash->{ $+{nwidth} });
-        } else {
-            $width = "";
-        }
 
-        if (defined $+{dprec}) {
-            $prec = ".$+{dprec}";
-        } elsif ($+{wprec}) {
-            $prec = "." . int(shift @args);
-        } elsif (defined $+{nprec}) {
-            $prec = "." . int($hash->{ $+{nprec} });
-        } else {
-            $prec = "";
-        }
-
-        if (defined $+{dpi}) {
-            if ($w_in_vflag) {
-                $pi = q[2$];
-                splice @args, 1, 0, $_[ $+{dpi} ];
+            if (defined $+{nwidth}) {
+                $width = $hash->{ $+{nwidth} };
             } else {
-                $pi = q[1$];
-                unshift @args, $_[ $+{dpi} ];
+                $width = $+{width};
             }
-        } elsif (defined $+{npi}) {
-            if ($w_in_vflag) {
-                $pi = q[2$];
-                splice @args, 1, 0, $hash->{ $+{npi} };
+
+            if (defined $+{nprec}) {
+                $prec = $hash->{ $+{nprec} };
             } else {
-                $pi = q[1$];
-                unshift @args, $hash->{ $+{npi} };
+                $prec = $+{prec};
             }
+
+            $res = join("",
+                grep {defined} (
+                    "%",
+                    $pi, $+{flags}, $+{vflag},
+                    $width, $+{dot}, $prec, $+{conv})
+                );
         } else {
-            $pi = "";
+            my $i = @args + 1;
+            push @args, $1;
+            $res = "\%${i}\$s";
         }
-
-        $conv = $+{conv};
-
-        $fmt = "%$pi$flags$vflag$width$prec$conv";
-        $res = sprintf($fmt, @args);
-
-        # DEBUG
-        #my %a = %+; print "\%+={".join(", ", %a)."} \n";
-        #print "\@args=(".join(", ", @args).") \n";
-        #print "[DBG:pi=<$pi> flags=<$flags> vflag=<$vflag> width=<$width> ".
-        #    "prec=<$prec> conv=<$conv> fmt=<$fmt> ".
-        #        "args=(".join(",",@args).") res=<$res>]\n";
-
-        $shift++;
-        shift @args for $shift;
         $res;
     }xeg;
-    $format;
+
+    # DEBUG
+    #use Data::Dump; dd [$format, @args];
+
+    sprintf $format, @args;
 }
 
 sub printfn {
@@ -136,35 +107,40 @@ Text::sprintfn - Drop-in replacement for sprintf(), with named parameter support
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 SYNOPSIS
 
  use Text::sprintfn; # by default exports sprintfn() and printfn()
 
- printfn("<%2d> <%(foo)-(bar).2f> <%0$04d>", {foo=>1, bar=>5}, 3, 42);
- # < 3> <1.00 > <0003>
+ # with no hash, behaves just like printf
+ printfn '<%04d>', 1, 2; # <0001>
 
- print sprintf "<%-4d>", 123; # no hash provided, acts like normal sprintf()
- # <123 >
+ # named parameter
+ printfn '<%(v1)-4d>', {v1=>-2}; # <-2  >
+
+ # mixed named and positional
+ printfn '<%d> <%(v1)d> <%d>', {v1=>1}, 2, 3; # <2> <1> <3>
+
+ # named width
+ printfn "<%(v1)(v2).1f>", {v1=>3, v2=>4}; # <   3>
+
+ # named precision
+ printfn "<%(v1)(v2).(v2)f>", {v1=>3, v2=>4}; # <3.0000>
 
 =head1 DESCRIPTION
 
 This module provides sprintfn() and printfn(), which are like sprintf() and
 printf(), with the exception that they support named parameters from a hash.
 
-There exist other CPAN modules for string formatting with named parameter
-support, but this one focuses on interface simplicity and sprintf compatibility
-since most people are already familiar with it and it has several features.
-
 =head1 FUNCTIONS
 
-=head2 sprintfn FORMAT, HASH_ARG, OTHER_ARG, ...
+=head2 sprintfn $fmt, \%hash, ...
 
 If first argument after format is not a hash, sprintfn() will behave exactly
 like sprintf().
 
-If HASH_ARG is given, sprintfn() will look for named parameters in argument and
+If hash is given, sprintfn() will look for named parameters in argument and
 supply the values from the hash. Named parameters are surrounded with
 parentheses, i.e. "(NAME)". They can occur in format parameter index:
 
@@ -196,9 +172,22 @@ There is currently no way to escape ")" in named parameter, e.g.:
 
  %(var containing ))s
 
-=head2 printfn
+=head2 printfn $fmt, ...
 
-Equivalent to "print sprintf(@_)".
+Equivalent to: print sprintf($fmt, ...).
+
+=head1 RATIONALE
+
+There exist other CPAN modules for string formatting with named parameter
+support. Two of such modules are L<String::Formatter> and
+L<Text::Sprintf::Named>. This module is far simpler to use and retains all of
+the features of Perl's sprintf() (which we like, or perhaps hate, but
+nevertheless are familiar with).
+
+String::Formatter requires you to create a new formatter function first.
+Text::Sprintf::Named also accordingly requires you to instantiate an object
+first. There is currently no way to mix named and positional parameters. And you
+don't get the full features of sprintf().
 
 =head1 TIPS AND TRICKS
 
@@ -227,7 +216,7 @@ instead of
 You have several hashes (%h1, %h2, %h3) which should be consulted for values.
 You can either merge the hash first:
 
- %h = (%h1, %h2, %h3); # or one of several available module for hash merging
+ %h = (%h1, %h2, %h3); # or use one of several available module for hash merging
  printfn $format, \%h, ...;
 
 or create a tied hash which can consult hashes for you:
@@ -235,16 +224,9 @@ or create a tied hash which can consult hashes for you:
  tie %h, 'Your::Module', \%h1, \%h2, \%h3;
  printfn $format, \%h, ...;
 
-=head1 IMPLEMENTATION NOTES
-
-Currently every format will be converted using a separate sprintf() invocation.
-So "<%d> <%(var)s> <%.(var2)f>" will result in three calls.
-
 =head1 SEE ALSO
 
 sprintf() section on L<perlfunc>
-
-L<String::Flogger>
 
 L<String::Formatter>
 

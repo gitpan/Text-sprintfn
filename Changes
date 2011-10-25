@@ -1,5 +1,11 @@
 Revision history for Text-sprintfn
 
+0.03    2011-10-23
+
+        Rewrite implementation (third time's the charm), now everything works
+        and only calls sprintf() once.
+
+
 0.02    2011-10-23
 
         Rewrite implementation, now works with * and \d+$, but still has trouble
