@@ -1,5 +1,10 @@
 Revision history for Text-sprintfn
 
+0.04    2011-11-01
+
+        No functional changes. Add missing $VERSION.
+
+
 0.03    2011-10-23
 
         Rewrite implementation (third time's the charm), now everything works

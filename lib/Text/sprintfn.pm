@@ -8,6 +8,8 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT    = qw(sprintfn printfn);
 
+our $VERSION = '0.04'; # VERSION
+
 our $distance  = 10;
 
 my  $re1   = qr/[^)]+/s;
@@ -107,7 +109,7 @@ Text::sprintfn - Drop-in replacement for sprintf(), with named parameter support
 
 =head1 VERSION
 
-version 0.03
+version 0.04
 
 =head1 SYNOPSIS
 
