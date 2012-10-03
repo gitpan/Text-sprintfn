@@ -8,7 +8,7 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT    = qw(sprintfn printfn);
 
-our $VERSION = '0.04'; # VERSION
+our $VERSION = '0.05'; # VERSION
 
 our $distance  = 10;
 
@@ -29,6 +29,36 @@ my  $re2   = qr{(?<fmt>
                    )}x;
 our $regex = qr{($re2|%|[^%]+)}s;
 
+# faster version, without using named capture
+if (1) {
+    $regex = qr{( #all=1
+                    ( #fmt=2
+                        %
+                        (#pi=3
+                            \d+\$ | \(
+                            (#npi=4
+                                [^)]+)\)\$?)?
+                        (#flags=5
+                            [ +0#-]+)?
+                        (#vflag=6
+                            \*?[v])?
+                        (#width=7
+                            -?\d+ |
+                            \*\d+\$? |
+                            \((#nwidth=8
+                                [^)]+)\))?
+                        (#dot=9
+                            \.?)
+                        (#prec=10
+                            (?: \d+ | \* |
+                                \((#nprec=11
+                                    [^)]+)\) ) ) ?
+                        (#conv=12
+                            [%csduoxefgXEGbBpniDUOF])
+                    ) | % | [^%]+
+                )}xs;
+}
+
 sub sprintfn {
     my ($format, @args) = @_;
 
@@ -42,40 +72,37 @@ sub sprintfn {
     push @args, (undef) x $distance;
 
     $format =~ s{$regex}{
-        # take care not to use any regex here (resets %+)
-        my $res;
-        my ($pi, $width, $prec);
-        if ($+{fmt}) {
+        my ($all, $fmt, $pi, $npi, $flags,
+            $vflag, $width, $nwidth, $dot, $prec,
+            $nprec, $conv) =
+            ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
-            if (defined $+{npi}) {
-                my $i = $indexes{ $+{npi} };
+        my $res;
+        if ($fmt) {
+
+            if (defined $npi) {
+                my $i = $indexes{$npi};
                 if (!$i) {
                     $i = @args + 1;
-                    push @args, $hash->{ $+{npi} };
-                    $indexes{ $+{npi} } = $i;
+                    push @args, $hash->{$npi};
+                    $indexes{$npi} = $i;
                 }
                 $pi = "${i}\$";
-            } else {
-                $pi = $+{pi};
             }
 
-            if (defined $+{nwidth}) {
-                $width = $hash->{ $+{nwidth} };
-            } else {
-                $width = $+{width};
+            if (defined $nwidth) {
+                $width = $hash->{$nwidth};
             }
 
-            if (defined $+{nprec}) {
-                $prec = $hash->{ $+{nprec} };
-            } else {
-                $prec = $+{prec};
+            if (defined $nprec) {
+                $prec = $hash->{$nprec};
             }
 
             $res = join("",
                 grep {defined} (
                     "%",
-                    $pi, $+{flags}, $+{vflag},
-                    $width, $+{dot}, $prec, $+{conv})
+                    $pi, $flags, $vflag,
+                    $width, $dot, $prec, $conv)
                 );
         } else {
             my $i = @args + 1;
@@ -109,7 +136,7 @@ Text::sprintfn - Drop-in replacement for sprintf(), with named parameter support
 
 =head1 VERSION
 
-version 0.04
+version 0.05
 
 =head1 SYNOPSIS
 
@@ -176,11 +203,11 @@ There is currently no way to escape ")" in named parameter, e.g.:
 
 =head2 printfn $fmt, ...
 
-Equivalent to: print sprintf($fmt, ...).
+Equivalent to: print sprintfn($fmt, ...).
 
 =head1 RATIONALE
 
-There exist other CPAN modules for string formatting with named parameter
+There exists other CPAN modules for string formatting with named parameter
 support. Two of such modules are L<String::Formatter> and
 L<Text::Sprintf::Named>. This module is far simpler to use and retains all of
 the features of Perl's sprintf() (which we like, or perhaps hate, but
@@ -207,18 +234,18 @@ instead of
 
 Writing
 
- sprintf $format, %hash, ...;
+ sprintfn $format, %hash, ...;
 
 instead of
 
- sprintf $format, \%hash, ...;
+ sprintfn $format, \%hash, ...;
 
 =head2 Alternative hashes
 
 You have several hashes (%h1, %h2, %h3) which should be consulted for values.
 You can either merge the hash first:
 
- %h = (%h1, %h2, %h3); # or use one of several available module for hash merging
+ %h = (%h1, %h2, %h3); # or use some hash merging module
  printfn $format, \%h, ...;
 
 or create a tied hash which can consult hashes for you:
@@ -240,7 +267,7 @@ Steven Haryanto <stevenharyanto@gmail.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2011 by Steven Haryanto.
+This software is copyright (c) 2012 by Steven Haryanto.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

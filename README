@@ -3,7 +3,7 @@ NAME
     support
 
 VERSION
-    version 0.04
+    version 0.05
 
 SYNOPSIS
      use Text::sprintfn; # by default exports sprintfn() and printfn()
@@ -68,10 +68,10 @@ FUNCTIONS
      %(var containing ))s
 
   printfn $fmt, ...
-    Equivalent to: print sprintf($fmt, ...).
+    Equivalent to: print sprintfn($fmt, ...).
 
 RATIONALE
-    There exist other CPAN modules for string formatting with named
+    There exists other CPAN modules for string formatting with named
     parameter support. Two of such modules are String::Formatter and
     Text::Sprintf::Named. This module is far simpler to use and retains all
     of the features of Perl's sprintf() (which we like, or perhaps hate, but
@@ -95,17 +95,17 @@ TIPS AND TRICKS
   Common mistake 2 (a bit more newbish)
     Writing
 
-     sprintf $format, %hash, ...;
+     sprintfn $format, %hash, ...;
 
     instead of
 
-     sprintf $format, \%hash, ...;
+     sprintfn $format, \%hash, ...;
 
   Alternative hashes
     You have several hashes (%h1, %h2, %h3) which should be consulted for
     values. You can either merge the hash first:
 
-     %h = (%h1, %h2, %h3); # or use one of several available module for hash merging
+     %h = (%h1, %h2, %h3); # or use some hash merging module
      printfn $format, \%h, ...;
 
     or create a tied hash which can consult hashes for you:
@@ -124,7 +124,7 @@ AUTHOR
     Steven Haryanto <stevenharyanto@gmail.com>
 
 COPYRIGHT AND LICENSE
-    This software is copyright (c) 2011 by Steven Haryanto.
+    This software is copyright (c) 2012 by Steven Haryanto.
 
     This is free software; you can redistribute it and/or modify it under
     the same terms as the Perl 5 programming language system itself.

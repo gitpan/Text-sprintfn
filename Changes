@@ -1,23 +1,31 @@
 Revision history for Text-sprintfn
 
-0.04    2011-11-01
+0.05    2012-10-03 (SHARYANTO)
+
+        No functional changes. Faster performance by avoid using named capture
+        in regex. Benchmark on a simple format: sprintfn("%(a)s%s%s", {a=>1,
+        b=>9}, 2, 3), shows increase from around 19k/s to 49k/sec (about 150%
+        speed increase).
+
+
+0.04    2011-11-01 (SHARYANTO)
 
         No functional changes. Add missing $VERSION.
 
 
-0.03    2011-10-23
+0.03    2011-10-23 (SHARYANTO)
 
         Rewrite implementation (third time's the charm), now everything works
         and only calls sprintf() once.
 
 
-0.02    2011-10-23
+0.02    2011-10-23 (SHARYANTO)
 
         Rewrite implementation, now works with * and \d+$, but still has trouble
         with vector flag combination.
 
 
-0.01    2011-10-22
+0.01    2011-10-22 (SHARYANTO)
 
         First release, still has problems with '*' in formats.
 
