@@ -24,6 +24,11 @@
             "Module::Build" : "0.3601"
          }
       },
+      "develop" : {
+         "requires" : {
+            "Test::Rinci" : "0.01"
+         }
+      },
       "runtime" : {
          "requires" : {
             "perl" : "5.010000"
@@ -42,6 +47,6 @@
          "url" : "http://github.com/sharyanto/perl-Text-sprintfn"
       }
    },
-   "version" : "0.05"
+   "version" : "0.06"
 }
 
