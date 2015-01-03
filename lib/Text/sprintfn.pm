@@ -1,6 +1,6 @@
 package Text::sprintfn;
 
-use 5.010;
+use 5.010001;
 use strict;
 use warnings;
 
@@ -8,7 +8,7 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT    = qw(sprintfn printfn);
 
-our $VERSION = '0.06'; # VERSION
+our $VERSION = '0.07'; # VERSION
 
 our $distance  = 10;
 
@@ -125,10 +125,11 @@ sub printfn {
 1;
 # ABSTRACT: Drop-in replacement for sprintf(), with named parameter support
 
-
-
 __END__
+
 =pod
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -136,7 +137,7 @@ Text::sprintfn - Drop-in replacement for sprintf(), with named parameter support
 
 =head1 VERSION
 
-version 0.06
+This document describes version 0.07 of Text::sprintfn (from Perl distribution Text-sprintfn), released on 2015-01-03.
 
 =head1 SYNOPSIS
 
@@ -270,10 +271,6 @@ or create a tied hash which can consult hashes for you:
  tie %h, 'Your::Module', \%h1, \%h2, \%h3;
  printfn $format, \%h, ...;
 
-=head1 TODOS
-
-Some sort of caching.
-
 =head1 SEE ALSO
 
 sprintf() section on L<perlfunc>
@@ -282,16 +279,31 @@ L<String::Formatter>
 
 L<Text::Sprintf::Named>
 
+=head1 HOMEPAGE
+
+Please visit the project's homepage at L<https://metacpan.org/release/Text-sprintfn>.
+
+=head1 SOURCE
+
+Source repository is at L<https://github.com/sharyanto/perl-Text-sprintfn>.
+
+=head1 BUGS
+
+Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=Text-sprintfn>
+
+When submitting a bug or request, please include a test-file or a
+patch to an existing test-file that illustrates the bug or desired
+feature.
+
 =head1 AUTHOR
 
-Steven Haryanto <stevenharyanto@gmail.com>
+perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 by Steven Haryanto.
+This software is copyright (c) 2015 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
 
 =cut
-

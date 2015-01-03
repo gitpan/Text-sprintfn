@@ -5,7 +5,7 @@ use strict;
 use warnings;
 
 #use Data::Dump::OneLine qw(dump1);
-use Test::More 0.96;
+use Test::More 0.98;
 use Text::sprintfn;
 
 # [fmt, args, res], ...
